@@ -43,6 +43,20 @@ It runs **three ways from one codebase**:
 - **Offline-aware** — a banner appears when you lose connectivity, reassuring you that
   changes are still being saved locally.
 
+## Downloads
+
+Prebuilt installers are attached to the [**v1.0.0 release**](https://github.com/aclacltradings-max/To-do-me-list-/releases/tag/v1.0.0):
+
+| Platform | File | Install |
+| --- | --- | --- |
+| Android | `FinTrack-1.0.0-debug.apk` | Open the file on your phone and allow installs from your browser/file manager. |
+| Linux (portable) | `FinTrack-1.0.0.AppImage` | `chmod +x` the file, then run it. No install needed. |
+| Linux (Debian/Ubuntu) | `fintrack_1.0.0_amd64.deb` | `sudo apt install ./fintrack_1.0.0_amd64.deb` |
+| Windows | `FinTrack-Setup-1.0.0.exe` | Run the installer. Unsigned, so SmartScreen may ask you to confirm. |
+
+The Android and Windows builds are unsigned/debug and meant for personal use. macOS
+builds must be produced on macOS (`npm run electron:build:mac`).
+
 ## Installing the app
 
 FinTrack ships as a PWA and as native apps for Android and desktop. All three use the

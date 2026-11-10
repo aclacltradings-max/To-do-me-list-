@@ -103,6 +103,13 @@ Both native targets wrap the same `dist/` output; there is no platform-specific 
 - Windows NSIS cross-builds from Linux but needs **wine with 32-bit support**
   (`wine32:i386`); otherwise `rcedit` fails. macOS DMGs must be built on macOS.
 
+### Releases
+
+Built artifacts are too large for the repo (the git-ignored `release/` and the APK are
+~4–115 MB), so they are published as GitHub Release assets on a `v*` tag instead. The
+release body is the source of truth for install instructions; keep the README's
+Downloads section pointing at the latest tag.
+
 ## PWA / installability
 
 The app is installable. Four moving parts, and they must stay consistent:

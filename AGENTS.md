@@ -48,17 +48,50 @@ Always run `npm run build` before declaring work done — it type-checks and bun
 
 ```
 src/
-  components/ui/      Button, Field, Modal, ConfirmDialog, Badge, EmptyState
+  components/ui/      Button, Field, Modal, ConfirmDialog, Badge, EmptyState, Toast
   components/charts/  ChartsPanel (Recharts; lazy-loaded from App.tsx)
   components/         Header, Dashboard, FilterBar, TransactionList/Item,
-                      TransactionForm, MonthlySummary, CategoryManager, Icons
-  hooks/              useFinance (store + CRUD), useLocalStorage, useTheme
+                      TransactionForm, MonthlySummary, CategoryManager, Icons,
+                      InstallButton, InstallDialog, OfflineBanner
+  hooks/              useFinance (store + CRUD), useLocalStorage, useTheme,
+                      useInstallPrompt, useOnlineStatus
   utils/              finance.ts (calc/validation), format.ts, colors.ts
+  pwa.ts              service worker registration (production only)
   types.ts            Transaction, Category, filters, summaries
 ```
 
 `ChartsPanel` is dynamically imported so Recharts stays out of the main bundle.
 Keep it that way — it is ~400 kB.
+
+## PWA / installability
+
+The app is installable. Four moving parts, and they must stay consistent:
+
+- `public/manifest.webmanifest` — name, colours, icons. `display: standalone`.
+- `public/sw.js` — the offline cache. `CACHE_VERSION` at the top must be bumped whenever
+  the caching behaviour changes, otherwise returning users keep the old cache.
+- `src/pwa.ts` — registers the worker. **Guarded by `import.meta.env.PROD` on purpose**:
+  in dev, Vite serves modules on demand and caching them breaks hot reload. So the service
+  worker cannot be tested with `npm run dev` — use `npm run build && npm run preview`.
+- `src/hooks/useInstallPrompt.ts` — captures `beforeinstallprompt`.
+
+Icons are committed as PNGs in `public/`. They were generated once by a throwaway script
+(pure-Python PNG writer, no image libraries available in the sandbox). If you need to
+change the logo, either regenerate them with any image tool or hand-edit; don't expect
+`favicon.svg` and the PNGs to update each other.
+
+Installing requires HTTPS or `localhost`. The sandbox proxy host is HTTPS, so the install
+button appears there.
+
+### Install prompt gotchas
+
+- `beforeinstallprompt` fires before React mounts, so it is captured in a module-level
+  variable at import time and buffered. Don't move that listener inside the hook.
+- The event is single-use. `prompt()` called twice throws, so the hook has an
+  `awaitingChoice` guard. React StrictMode will happily double-invoke effects — keep the
+  guard.
+- iOS Safari never fires the event, so `showInstall` also returns true on iOS and the
+  dialog falls back to manual instructions.
 
 ## localStorage keys
 

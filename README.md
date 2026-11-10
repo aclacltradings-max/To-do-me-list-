@@ -4,7 +4,10 @@ A clean, modern, offline-first web app for tracking income and expenses. Built w
 **React 19**, **TypeScript**, **Vite** and **Tailwind CSS v4**. No backend, no API keys,
 no accounts — everything lives in your browser's `localStorage`.
 
-![Stack](https://img.shields.io/badge/React-19-61dafb) ![TypeScript](https://img.shields.io/badge/TypeScript-5.9-3178c6) ![Vite](https://img.shields.io/badge/Vite-7-646cff) ![Tailwind](https://img.shields.io/badge/Tailwind-4-38bdf8)
+Installable as a PWA: add it to your phone's home screen or your desktop and it runs in
+its own window, fully offline.
+
+![Stack](https://img.shields.io/badge/React-19-61dafb) ![TypeScript](https://img.shields.io/badge/TypeScript-5.9-3178c6) ![Vite](https://img.shields.io/badge/Vite-7-646cff) ![Tailwind](https://img.shields.io/badge/Tailwind-4-38bdf8) ![PWA](https://img.shields.io/badge/PWA-installable-5a0fc8)
 
 ## Features
 
@@ -29,6 +32,30 @@ no accounts — everything lives in your browser's `localStorage`.
 - **Responsive** — mobile-first, with a floating action button on small screens and a
   multi-column layout on desktop.
 - **Dark mode** — follows your OS by default, with a manual toggle that is remembered.
+- **Installable (PWA)** — an Install button in the header (or the browser's own install
+  control) adds it to your home screen or desktop. A service worker caches the app so it
+  opens and works with no network connection.
+- **Offline-aware** — a banner appears when you lose connectivity, reassuring you that
+  changes are still being saved locally.
+
+## Installing the app
+
+FinTrack is a Progressive Web App. Once installed it launches in its own window, appears
+in your app list, and works offline.
+
+| Platform | How to install |
+| --- | --- |
+| **Chrome / Edge / Android** | Click the **Install** button in the header, or the install icon in the address bar. |
+| **iOS Safari** | Tap **Share** → **Add to Home Screen**. (The in-app dialog shows these steps.) |
+| **Desktop** | Use the install icon in the address bar, or the browser menu → *Install FinTrack*. |
+
+Installation requires the app to be served over **HTTPS** (or `localhost`). The dev server
+serves over HTTP, so the service worker only registers in a production build:
+
+```bash
+npm run build
+npm run preview   # then open the printed URL
+```
 
 ## Getting started
 
@@ -46,9 +73,17 @@ npm run lint    # type-check only (tsc --noEmit)
 
 ```
 .
-├── index.html
+├── index.html                      # Meta tags, manifest link, theme colour
 ├── public/
-│   └── favicon.svg
+│   ├── manifest.webmanifest        # PWA metadata (name, icons, display)
+│   ├── sw.js                       # Service worker — offline caching
+│   ├── favicon.svg
+│   ├── favicon-48.png
+│   ├── icon-192.png                # PWA icons (any purpose)
+│   ├── icon-512.png
+│   ├── icon-maskable-192.png       # PWA icons (maskable / Android adaptive)
+│   ├── icon-maskable-512.png
+│   └── apple-touch-icon.png        # iOS home-screen icon
 ├── src/
 │   ├── components/
 │   │   ├── charts/
@@ -59,19 +94,25 @@ npm run lint    # type-check only (tsc --noEmit)
 │   │   │   ├── ConfirmDialog.tsx
 │   │   │   ├── EmptyState.tsx
 │   │   │   ├── Field.tsx           # Label + hint + error wrapper
-│   │   │   └── Modal.tsx           # Focus-trapping, scroll-locking dialog
+│   │   │   ├── Modal.tsx           # Focus-trapping, scroll-locking dialog
+│   │   │   └── Toast.tsx           # Transient bottom-of-screen message
 │   │   ├── CategoryManager.tsx     # Add / rename / delete categories
 │   │   ├── Dashboard.tsx           # Income, expenses, balance cards
 │   │   ├── FilterBar.tsx           # Search, type, category, date range
-│   │   ├── Header.tsx              # Branding, theme toggle, add button
+│   │   ├── Header.tsx              # Branding, install, theme toggle, add button
 │   │   ├── Icons.tsx               # Inline SVG icon set (no icon library)
+│   │   ├── InstallButton.tsx       # Triggers the install prompt
+│   │   ├── InstallDialog.tsx       # Platform-aware install instructions
 │   │   ├── MonthlySummary.tsx      # Totals per month
+│   │   ├── OfflineBanner.tsx       # Shown when connectivity is lost
 │   │   ├── TransactionForm.tsx     # Add/edit form with validation
 │   │   ├── TransactionItem.tsx     # One row in the history list
 │   │   └── TransactionList.tsx     # Grouped, sorted history list
 │   ├── hooks/
 │   │   ├── useFinance.ts           # Transactions + categories store, CRUD, seeds
+│   │   ├── useInstallPrompt.ts     # beforeinstallprompt handling
 │   │   ├── useLocalStorage.ts      # Generic persisted state
+│   │   ├── useOnlineStatus.ts      # Connectivity tracking
 │   │   └── useTheme.ts             # Dark mode with OS fallback
 │   ├── utils/
 │   │   ├── colors.ts               # Category colour palette (class + hex)
@@ -79,7 +120,8 @@ npm run lint    # type-check only (tsc --noEmit)
 │   │   └── format.ts               # Currency / date formatting helpers
 │   ├── App.tsx                     # Layout and wiring
 │   ├── index.css                   # Tailwind entry + theme tokens
-│   ├── main.tsx                    # React entry point
+│   ├── main.tsx                    # React entry point + service worker
+│   ├── pwa.ts                      # Service worker registration
 │   ├── types.ts                    # Transaction, Category, filters, summaries
 │   └── vite-env.d.ts
 ├── tsconfig.json                   # References app + node configs
@@ -165,6 +207,40 @@ characters, and the date is a real calendar date.
 - Income and expenses are distinguished by colour **and** icon **and** sign, never colour
   alone.
 - Charts are lazy-loaded so Recharts stays out of the initial bundle.
+
+### Installability and offline support
+
+The PWA layer has three parts.
+
+**The manifest** (`public/manifest.webmanifest`) declares the app name, colours and icons.
+Two icon sets are shipped: regular icons for browsers, and **maskable** icons with the
+artwork inside the safe zone so Android can crop them to any shape without clipping.
+
+**The service worker** (`public/sw.js`) caches the app so it works offline. It uses a
+different strategy per request type:
+
+| Request | Strategy | Why |
+| --- | --- | --- |
+| Page navigations | Network first, fall back to the cached shell | Users get fresh content when online, and the app still opens when offline |
+| `/assets/*` | Cache first | Vite fingerprints these filenames, so a cached file can never be stale |
+| Everything else | Stale-while-revalidate | Fast responses, refreshed in the background |
+
+Cached entries live under `fintrack-v1`. Bumping `CACHE_VERSION` in `sw.js` retires the old
+cache on the next activation. The worker is registered from `src/pwa.ts`, and **only in
+production builds** — caching Vite's dev modules would break hot reloading.
+
+**The install UI** (`useInstallPrompt`, `InstallButton`, `InstallDialog`) handles the
+platform differences:
+
+- Chrome, Edge and Android fire `beforeinstallprompt`, so the header shows an **Install**
+  button that opens the browser's native prompt.
+- That event fires before React mounts, so it is captured at module load and buffered for
+  the hook to consume.
+- iOS Safari never fires it, so the dialog shows step-by-step "Add to Home Screen"
+  instructions instead.
+- A prompt event is single-use; the hook guards against calling `prompt()` twice, which
+  would throw.
+- If the app is already running standalone, the button is hidden.
 
 ## Notes
 

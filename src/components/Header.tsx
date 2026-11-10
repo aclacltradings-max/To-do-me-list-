@@ -1,4 +1,5 @@
 import { Button } from './ui/Button';
+import { InstallButton } from './InstallButton';
 import { MenuIcon, MoonIcon, PlusIcon, SunIcon, WalletIcon } from './Icons';
 
 interface HeaderProps {
@@ -6,9 +7,19 @@ interface HeaderProps {
   onToggleTheme: () => void;
   onAdd: () => void;
   onToggleMenu?: () => void;
+  /** True when the app can be installed on this device. */
+  canInstall?: boolean;
+  onInstall?: () => void;
 }
 
-export function Header({ isDark, onToggleTheme, onAdd, onToggleMenu }: HeaderProps) {
+export function Header({
+  isDark,
+  onToggleTheme,
+  onAdd,
+  onToggleMenu,
+  canInstall = false,
+  onInstall,
+}: HeaderProps) {
   return (
     <header className="sticky top-0 z-40 border-b border-slate-200 bg-white/85 backdrop-blur-lg dark:border-slate-800 dark:bg-slate-950/85">
       <div className="mx-auto flex h-16 max-w-7xl items-center gap-3 px-4 sm:px-6 lg:px-8">
@@ -38,6 +49,16 @@ export function Header({ isDark, onToggleTheme, onAdd, onToggleMenu }: HeaderPro
         </div>
 
         <div className="ml-auto flex items-center gap-2">
+          {canInstall && onInstall && (
+            <>
+              <span className="hidden sm:inline-flex">
+                <InstallButton onClick={onInstall} />
+              </span>
+              <span className="sm:hidden">
+                <InstallButton compact onClick={onInstall} />
+              </span>
+            </>
+          )}
           <button
             type="button"
             onClick={onToggleTheme}

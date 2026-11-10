@@ -2,9 +2,13 @@ import { lazy, Suspense, useCallback, useMemo, useState } from 'react';
 import type { Category, Transaction, TransactionDraft, TransactionFilters } from './types';
 import { useFinance } from './hooks/useFinance';
 import { useTheme } from './hooks/useTheme';
+import { useInstallPrompt } from './hooks/useInstallPrompt';
+import { useOnlineStatus } from './hooks/useOnlineStatus';
 import { computeTotals, filterTransactions, hasActiveFilters } from './utils/finance';
 import { monthKey, todayISO } from './utils/format';
 import { Header } from './components/Header';
+import { OfflineBanner } from './components/OfflineBanner';
+import { InstallDialog } from './components/InstallDialog';
 import { Dashboard } from './components/Dashboard';
 import { FilterBar } from './components/FilterBar';
 import { TransactionList } from './components/TransactionList';
@@ -13,8 +17,9 @@ import { MonthlySummary } from './components/MonthlySummary';
 import { CategoryManager } from './components/CategoryManager';
 import { Modal } from './components/ui/Modal';
 import { ConfirmDialog } from './components/ui/ConfirmDialog';
+import { Toast } from './components/ui/Toast';
 import { Button } from './components/ui/Button';
-import { PlusIcon, SparkIcon } from './components/Icons';
+import { CheckCircleIcon, PlusIcon, SparkIcon } from './components/Icons';
 
 // Recharts is heavy, so the charts are split into their own chunk and fetched
 // only once the panel is about to render.
@@ -41,6 +46,8 @@ const EMPTY_FILTERS: TransactionFilters = {
 export default function App() {
   const store = useFinance();
   const { isDark, toggleTheme } = useTheme();
+  const install = useInstallPrompt();
+  const online = useOnlineStatus();
 
   const [filters, setFilters] = useState<TransactionFilters>(EMPTY_FILTERS);
 
@@ -51,8 +58,21 @@ export default function App() {
   const [pendingDelete, setPendingDelete] = useState<Transaction | null>(null);
   const [pendingCategoryDelete, setPendingCategoryDelete] = useState<Category | null>(null);
   const [resetOpen, setResetOpen] = useState(false);
+  const [installOpen, setInstallOpen] = useState(false);
+  const [installToastOpen, setInstallToastOpen] = useState(false);
 
   const { transactions, categories } = store;
+
+  /** Runs the native install prompt when possible, otherwise shows instructions. */
+  const handleInstall = useCallback(async () => {
+    const outcome = await install.promptInstall();
+    if (outcome === 'accepted') {
+      setInstallOpen(false);
+      setInstallToastOpen(true);
+    } else if (outcome === 'unavailable') {
+      setInstallOpen(true);
+    }
+  }, [install]);
 
   /** Rows matching the active filters — drives the list, summary and charts. */
   const visible = useMemo(
@@ -118,7 +138,11 @@ export default function App() {
         isDark={isDark}
         onToggleTheme={toggleTheme}
         onAdd={openAdd}
+        canInstall={install.showInstall}
+        onInstall={handleInstall}
       />
+
+      {!online && <OfflineBanner />}
 
       <main className="mx-auto max-w-7xl px-4 pb-24 pt-6 sm:px-6 lg:px-8">
         {/* Dashboard */}
@@ -274,6 +298,23 @@ export default function App() {
         }}
         onCancel={() => setResetOpen(false)}
       />
+
+      {/* Install instructions / native prompt */}
+      <InstallDialog
+        open={installOpen}
+        onClose={() => setInstallOpen(false)}
+        platform={install.platform}
+        canInstall={install.canInstall}
+        onInstall={handleInstall}
+      />
+
+      <Toast
+        open={installToastOpen}
+        onClose={() => setInstallToastOpen(false)}
+        icon={<CheckCircleIcon className="h-5 w-5" />}
+      >
+        FinTrack was installed. Look for it on your home screen or in your apps list.
+      </Toast>
     </div>
   );
 }

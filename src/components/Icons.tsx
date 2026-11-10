@@ -99,3 +99,23 @@ export const TrendDownIcon = (p: IconProps) => (
 export const InboxIcon = (p: IconProps) => (
   <svg {...base} {...p}><path d="M3 13h5l1.5 3h5L16 13h5" /><path d="M5 4h14l2 9v5a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-5l2-9Z" /></svg>
 );
+
+export const DownloadIcon = (p: IconProps) => (
+  <svg {...base} {...p}><path d="M12 3v12M7 11l5 5 5-5M4 21h16" /></svg>
+);
+
+export const CheckCircleIcon = (p: IconProps) => (
+  <svg {...base} {...p}><circle cx="12" cy="12" r="9" /><path d="m8.5 12.5 2.5 2.5 4.5-5" /></svg>
+);
+
+export const WifiOffIcon = (p: IconProps) => (
+  <svg {...base} {...p}><path d="M2 3l20 18M8.5 16.5a5 5 0 0 1 7 0M5 13a10 10 0 0 1 4-2.3M19 13a10 10 0 0 0-2.6-1.9M2.5 8.8a15 15 0 0 1 4.2-2.3M21.5 8.8a15 15 0 0 0-6.7-2.7M12 20h.01" /></svg>
+);
+
+export const ShareIcon = (p: IconProps) => (
+  <svg {...base} {...p}><path d="M12 3v13M8 7l4-4 4 4M5 14v5a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-5" /></svg>
+);
+
+export const RefreshIcon = (p: IconProps) => (
+  <svg {...base} {...p}><path d="M21 12a9 9 0 1 1-3-6.7M21 4v5h-5" /></svg>
+);

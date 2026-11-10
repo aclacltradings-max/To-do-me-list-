@@ -1,225 +1,295 @@
-import { useCallback, useMemo, useState } from 'react';
-import type { Filters, Task, TaskDraft } from './types';
+import { lazy, Suspense, useCallback, useMemo, useState } from 'react';
+import type { Category, Transaction, TransactionDraft, TransactionFilters } from './types';
+import { useFinance } from './hooks/useFinance';
+import { useTheme } from './hooks/useTheme';
+import { computeTotals, filterTransactions, hasActiveFilters } from './utils/finance';
+import { monthKey, todayISO } from './utils/format';
 import { Header } from './components/Header';
 import { Dashboard } from './components/Dashboard';
 import { FilterBar } from './components/FilterBar';
-import { TaskList } from './components/TaskList';
-import { TaskForm } from './components/TaskForm';
+import { TransactionList } from './components/TransactionList';
+import { TransactionForm } from './components/TransactionForm';
+import { MonthlySummary } from './components/MonthlySummary';
 import { CategoryManager } from './components/CategoryManager';
-import { ConfirmDialog } from './components/ConfirmDialog';
-import { PlusIcon, TrashIcon } from './components/Icons';
-import { useTasks } from './hooks/useTasks';
-import { useTheme } from './hooks/useTheme';
-import {
-  ALL_CATEGORY_ID,
-  DEFAULT_CATEGORY_ID,
-  DEFAULT_FILTERS,
-  applyFilters,
-  computeStats,
-} from './lib/taskUtils';
+import { Modal } from './components/ui/Modal';
+import { ConfirmDialog } from './components/ui/ConfirmDialog';
+import { Button } from './components/ui/Button';
+import { PlusIcon, SparkIcon } from './components/Icons';
 
-type DialogState =
-  | { kind: 'none' }
-  | { kind: 'form'; task: Task | null }
-  | { kind: 'delete'; task: Task }
-  | { kind: 'clear-completed' };
+// Recharts is heavy, so the charts are split into their own chunk and fetched
+// only once the panel is about to render.
+const ChartsPanel = lazy(() =>
+  import('./components/charts/ChartsPanel').then((m) => ({ default: m.ChartsPanel })),
+);
+
+function ChartsFallback() {
+  return (
+    <div className="card flex h-72 items-center justify-center">
+      <p className="text-sm text-slate-500 dark:text-slate-400">Loading charts…</p>
+    </div>
+  );
+}
+
+const EMPTY_FILTERS: TransactionFilters = {
+  search: '',
+  type: 'all',
+  categoryId: 'all',
+  from: '',
+  to: '',
+};
 
 export default function App() {
-  const { theme, toggleTheme } = useTheme();
-  const {
-    tasks,
-    categories,
-    addTask,
-    updateTask,
-    deleteTask,
-    toggleTask,
-    clearCompleted,
-    addCategory,
-    deleteCategory,
-    seedSampleData,
-  } = useTasks();
+  const store = useFinance();
+  const { isDark, toggleTheme } = useTheme();
 
-  const [filters, setFilters] = useState<Filters>(DEFAULT_FILTERS);
-  const [dialog, setDialog] = useState<DialogState>({ kind: 'none' });
+  const [filters, setFilters] = useState<TransactionFilters>(EMPTY_FILTERS);
 
-  const stats = useMemo(() => computeStats(tasks, categories), [tasks, categories]);
-  const visibleTasks = useMemo(() => applyFilters(tasks, filters), [tasks, filters]);
+  // Dialog state
+  const [formOpen, setFormOpen] = useState(false);
+  const [editing, setEditing] = useState<Transaction | null>(null);
+  const [draft, setDraft] = useState<TransactionDraft>(() => store.emptyDraft());
+  const [pendingDelete, setPendingDelete] = useState<Transaction | null>(null);
+  const [pendingCategoryDelete, setPendingCategoryDelete] = useState<Category | null>(null);
+  const [resetOpen, setResetOpen] = useState(false);
 
-  const counts = useMemo(
-    () => ({
-      all: tasks.length,
-      active: tasks.filter((task) => !task.completed).length,
-      completed: tasks.filter((task) => task.completed).length,
-    }),
-    [tasks],
+  const { transactions, categories } = store;
+
+  /** Rows matching the active filters — drives the list, summary and charts. */
+  const visible = useMemo(
+    () => filterTransactions(transactions, filters),
+    [transactions, filters],
   );
 
-  const taskCountByCategory = useMemo(() => {
-    const map: Record<string, number> = {};
-    for (const task of tasks) {
-      map[task.categoryId] = (map[task.categoryId] ?? 0) + 1;
-    }
-    return map;
-  }, [tasks]);
+  const totals = useMemo(() => computeTotals(visible), [visible]);
 
-  const patchFilters = useCallback((patch: Partial<Filters>) => {
-    setFilters((current) => ({ ...current, ...patch }));
+  const currentMonth = monthKey(todayISO());
+  const monthTotals = useMemo(
+    () => computeTotals(visible.filter((t) => monthKey(t.date) === currentMonth)),
+    [visible, currentMonth],
+  );
+
+  const openAdd = useCallback(() => {
+    setEditing(null);
+    setDraft(store.emptyDraft('expense'));
+    setFormOpen(true);
+  }, [store]);
+
+  const openEdit = useCallback(
+    (transaction: Transaction) => {
+      setEditing(transaction);
+      setDraft(store.draftFrom(transaction));
+      setFormOpen(true);
+    },
+    [store],
+  );
+
+  const closeForm = useCallback(() => {
+    setFormOpen(false);
+    setEditing(null);
   }, []);
 
-  const resetFilters = useCallback(() => setFilters(DEFAULT_FILTERS), []);
-
-  const openAddForm = useCallback(() => setDialog({ kind: 'form', task: null }), []);
-  const openEditForm = useCallback((task: Task) => setDialog({ kind: 'form', task }), []);
-  const closeDialog = useCallback(() => setDialog({ kind: 'none' }), []);
-
   const handleSubmit = useCallback(
-    (draft: TaskDraft) => {
-      if (dialog.kind === 'form' && dialog.task) {
-        updateTask(dialog.task.id, draft);
-      } else {
-        addTask(draft);
-      }
-      closeDialog();
+    (next: TransactionDraft) => {
+      if (editing) store.updateTransaction(editing.id, next);
+      else store.addTransaction(next);
+      closeForm();
     },
-    [addTask, closeDialog, dialog, updateTask],
+    [editing, store, closeForm],
   );
 
-  const handleDelete = useCallback(() => {
-    if (dialog.kind === 'delete') deleteTask(dialog.task.id);
-    closeDialog();
-  }, [closeDialog, deleteTask, dialog]);
+  const confirmDelete = useCallback(() => {
+    if (pendingDelete) store.deleteTransaction(pendingDelete.id);
+    setPendingDelete(null);
+  }, [pendingDelete, store]);
 
-  const handleClearCompleted = useCallback(() => {
-    clearCompleted();
-    closeDialog();
-  }, [clearCompleted, closeDialog]);
+  const confirmCategoryDelete = useCallback(() => {
+    if (pendingCategoryDelete) store.deleteCategory(pendingCategoryDelete.id);
+    setPendingCategoryDelete(null);
+  }, [pendingCategoryDelete, store]);
 
-  const defaultCategoryId = useMemo(() => {
-    if (
-      filters.categoryId !== ALL_CATEGORY_ID &&
-      categories.some((category) => category.id === filters.categoryId)
-    ) {
-      return filters.categoryId;
-    }
-    return categories.some((category) => category.id === DEFAULT_CATEGORY_ID)
-      ? DEFAULT_CATEGORY_ID
-      : (categories[0]?.id ?? DEFAULT_CATEGORY_ID);
-  }, [categories, filters.categoryId]);
+  const filtered = hasActiveFilters(filters);
+  const categoryUsage = pendingCategoryDelete
+    ? transactions.filter((t) => t.categoryId === pendingCategoryDelete.id).length
+    : 0;
 
   return (
-    <div className="mx-auto w-full max-w-5xl px-4 py-8 sm:px-6 sm:py-12">
+    <div className="min-h-screen bg-slate-100 dark:bg-slate-950">
       <Header
-        theme={theme}
+        isDark={isDark}
         onToggleTheme={toggleTheme}
-        onSeedSample={seedSampleData}
-        hasTasks={tasks.length > 0}
+        onAdd={openAdd}
       />
 
-      <div className="grid gap-5">
-        <Dashboard stats={stats} />
+      <main className="mx-auto max-w-7xl px-4 pb-24 pt-6 sm:px-6 lg:px-8">
+        {/* Dashboard */}
+        <Dashboard
+          totals={totals}
+          monthTotals={monthTotals}
+          transactionCount={visible.length}
+        />
 
-        <div className="grid gap-5 lg:grid-cols-[1fr_18rem]">
-          <div className="space-y-5">
+        {/* Main grid */}
+        <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-12">
+          <div className="space-y-6 lg:col-span-8">
             <FilterBar
               filters={filters}
+              onChange={setFilters}
+              onReset={() => setFilters(EMPTY_FILTERS)}
               categories={categories}
-              counts={counts}
-              onChange={patchFilters}
-              onReset={resetFilters}
+              resultCount={visible.length}
+              totalCount={transactions.length}
             />
 
-            <div className="flex items-center justify-between gap-3">
-              <h2 className="text-sm font-bold text-slate-700 dark:text-slate-200">
-                {counts.all === 0
-                  ? 'Tasks'
-                  : `Showing ${visibleTasks.length} of ${counts.all} task${counts.all === 1 ? '' : 's'}`}
-              </h2>
-              <div className="flex items-center gap-2">
-                {counts.completed > 0 && (
-                  <button
-                    type="button"
-                    onClick={() => setDialog({ kind: 'clear-completed' })}
-                    className="btn-ghost !px-3 !py-2 text-xs"
-                  >
-                    <TrashIcon className="h-3.5 w-3.5" />
-                    Clear completed
-                  </button>
-                )}
-                <button type="button" onClick={openAddForm} className="btn-primary">
-                  <PlusIcon className="h-4 w-4" />
-                  Add task
-                </button>
-              </div>
-            </div>
+            <Suspense fallback={<ChartsFallback />}>
+              <ChartsPanel transactions={visible} categories={categories} />
+            </Suspense>
 
-            <TaskList
-              tasks={visibleTasks}
+            <TransactionList
+              transactions={visible}
               categories={categories}
-              hasAnyTasks={counts.all > 0}
-              onToggle={toggleTask}
-              onEdit={openEditForm}
-              onDelete={(task) => setDialog({ kind: 'delete', task })}
-              onAdd={openAddForm}
-              onClearFilters={resetFilters}
+              filtered={filtered}
+              onEdit={openEdit}
+              onDelete={setPendingDelete}
+              onAdd={openAdd}
+              onResetFilters={() => setFilters(EMPTY_FILTERS)}
+              onLoadSample={store.loadSampleData}
             />
           </div>
 
-          <aside className="space-y-5 lg:sticky lg:top-8 lg:self-start">
+          <aside className="space-y-6 lg:col-span-4">
             <CategoryManager
               categories={categories}
-              taskCountByCategory={taskCountByCategory}
-              onAdd={addCategory}
-              onDelete={deleteCategory}
+              categoriesByType={store.categoriesByType}
+              transactions={transactions}
+              onAdd={store.addCategory}
+              onRename={store.renameCategory}
+              onDelete={setPendingCategoryDelete}
             />
 
-            <section className="card-surface animate-fade-up p-4 text-xs text-slate-500 sm:p-5 dark:text-slate-400">
-              <h2 className="mb-2 text-sm font-bold text-slate-900 dark:text-white">Tips</h2>
-              <ul className="space-y-1.5">
-                <li>• Click a task to edit its details.</li>
-                <li>• Tick the circle to mark it complete.</li>
-                <li>• Tasks are saved in your browser automatically.</li>
-              </ul>
+            <MonthlySummary transactions={visible} />
+
+            <section className="card p-5">
+              <h2 className="text-sm font-semibold text-slate-900 dark:text-slate-100">Data</h2>
+              <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                Everything is stored in this browser's localStorage. Nothing is uploaded.
+              </p>
+              <div className="mt-3.5 flex flex-col gap-2">
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  block
+                  onClick={store.loadSampleData}
+                  disabled={transactions.length > 0}
+                >
+                  <SparkIcon className="h-4 w-4" />
+                  Load sample data
+                </Button>
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  block
+                  onClick={() => setResetOpen(true)}
+                  disabled={transactions.length === 0}
+                >
+                  Clear all transactions
+                </Button>
+              </div>
             </section>
           </aside>
         </div>
-      </div>
+      </main>
 
-      <footer className="mt-10 text-center text-xs text-slate-400 dark:text-slate-500">
-        Built with React, TypeScript, Vite &amp; Tailwind CSS · Your data stays in this browser.
-      </footer>
+      {/* Mobile floating action button */}
+      <button
+        type="button"
+        onClick={openAdd}
+        aria-label="Add transaction"
+        className="fixed right-5 bottom-5 z-30 flex h-14 w-14 items-center justify-center rounded-full bg-indigo-600 text-white shadow-lg transition hover:bg-indigo-500 active:scale-95 sm:hidden"
+      >
+        <PlusIcon className="h-6 w-6" />
+      </button>
 
-      {dialog.kind === 'form' && (
-        <TaskForm
-          key={dialog.task?.id ?? 'new'}
-          task={dialog.task}
-          categories={categories}
-          defaultCategoryId={defaultCategoryId}
+      {/* Add / edit dialog */}
+      <Modal
+        open={formOpen}
+        onClose={closeForm}
+        title={editing ? 'Edit transaction' : 'Add transaction'}
+        description={
+          editing
+            ? 'Update the details and save your changes.'
+            : 'Record money coming in or going out.'
+        }
+        size="lg"
+      >
+        <TransactionFormWrapper
+          editing={editing}
+          draft={draft}
+          onChange={setDraft}
           onSubmit={handleSubmit}
-          onCancel={closeDialog}
+          onCancel={closeForm}
+          categories={categories}
+          onAddCategory={store.addCategory}
         />
-      )}
+      </Modal>
 
-      {dialog.kind === 'delete' && (
-        <ConfirmDialog
-          title="Delete task?"
-          message={`“${dialog.task.title}” will be permanently removed. This cannot be undone.`}
-          confirmLabel="Delete task"
-          onConfirm={handleDelete}
-          onCancel={closeDialog}
-        />
-      )}
+      {/* Delete a transaction */}
+      <ConfirmDialog
+        open={pendingDelete !== null}
+        title="Delete transaction?"
+        message={
+          pendingDelete
+            ? `“${pendingDelete.description}” will be permanently removed. This cannot be undone.`
+            : ''
+        }
+        confirmLabel="Delete"
+        onConfirm={confirmDelete}
+        onCancel={() => setPendingDelete(null)}
+      />
 
-      {dialog.kind === 'clear-completed' && (
-        <ConfirmDialog
-          title="Clear completed tasks?"
-          message={`This will remove ${counts.completed} completed task${
-            counts.completed === 1 ? '' : 's'
-          } from your list.`}
-          confirmLabel="Clear completed"
-          onConfirm={handleClearCompleted}
-          onCancel={closeDialog}
-        />
-      )}
+      {/* Delete a category */}
+      <ConfirmDialog
+        open={pendingCategoryDelete !== null}
+        title="Delete category?"
+        message={
+          pendingCategoryDelete
+            ? categoryUsage > 0
+              ? `“${pendingCategoryDelete.name}” is used by ${categoryUsage} transaction${categoryUsage === 1 ? '' : 's'}. Deleting it will also delete ${categoryUsage === 1 ? 'that transaction' : 'those transactions'}.`
+              : `“${pendingCategoryDelete.name}” has no transactions and will be removed.`
+            : ''
+        }
+        confirmLabel="Delete category"
+        onConfirm={confirmCategoryDelete}
+        onCancel={() => setPendingCategoryDelete(null)}
+      />
+
+      {/* Clear everything */}
+      <ConfirmDialog
+        open={resetOpen}
+        title="Clear all transactions?"
+        message={`All ${transactions.length} transactions will be deleted. Your categories are kept. This cannot be undone.`}
+        confirmLabel="Clear everything"
+        onConfirm={() => {
+          store.clearAllTransactions();
+          setResetOpen(false);
+        }}
+        onCancel={() => setResetOpen(false)}
+      />
     </div>
   );
+}
+
+/** Thin wrapper so the form remounts cleanly when switching between add and edit. */
+function TransactionFormWrapper({
+  editing,
+  ...rest
+}: {
+  editing: Transaction | null;
+  draft: TransactionDraft;
+  onChange: (draft: TransactionDraft) => void;
+  onSubmit: (draft: TransactionDraft) => void;
+  onCancel: () => void;
+  categories: Category[];
+  onAddCategory: (name: string, type: Category['type'], color: Category['color']) => Category;
+}) {
+  return <TransactionForm key={editing?.id ?? 'new'} transaction={editing} {...rest} />;
 }

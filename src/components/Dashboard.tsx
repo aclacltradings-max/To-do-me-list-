@@ -1,163 +1,157 @@
-import type { Stats } from '../types';
-import { colorTokens } from '../lib/theme';
-import { ChartIcon } from './Icons';
+import type { ReactNode } from 'react';
+import type { Totals } from '../types';
+import { formatCurrency } from '../utils/format';
+import { ArrowDownIcon, ArrowUpIcon, ScaleIcon, TrendDownIcon, TrendUpIcon } from './Icons';
 
 interface DashboardProps {
-  stats: Stats;
+  totals: Totals;
+  /** Totals for the same calendar month a year ago, used for the balance hint. */
+  monthTotals: Totals;
+  transactionCount: number;
+  currency?: string;
 }
 
-interface StatCardProps {
-  label: string;
-  value: number | string;
-  hint: string;
-  accent: string;
-}
-
-function StatCard({ label, value, hint, accent }: StatCardProps) {
-  return (
-    <div className="card-surface animate-pop relative overflow-hidden p-4">
-      <span className={`absolute inset-x-0 top-0 h-1 ${accent}`} aria-hidden="true" />
-      <p className="text-xs font-semibold tracking-wide text-slate-500 uppercase dark:text-slate-400">
-        {label}
-      </p>
-      <p className="mt-1.5 text-2xl font-extrabold text-slate-900 tabular-nums dark:text-white">
-        {value}
-      </p>
-      <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">{hint}</p>
-    </div>
-  );
-}
-
-function ProgressRing({ percent }: { percent: number }) {
-  const radius = 42;
-  const circumference = 2 * Math.PI * radius;
-  const offset = circumference - (percent / 100) * circumference;
+export function Dashboard({ totals, monthTotals, transactionCount, currency = 'USD' }: DashboardProps) {
+  const savingsRate = totals.income > 0 ? (totals.balance / totals.income) * 100 : 0;
 
   return (
-    <div className="relative grid h-32 w-32 shrink-0 place-items-center">
-      <svg viewBox="0 0 100 100" className="h-32 w-32 -rotate-90">
-        <circle
-          cx="50"
-          cy="50"
-          r={radius}
-          fill="none"
-          strokeWidth="10"
-          className="stroke-slate-200 dark:stroke-white/10"
-        />
-        <circle
-          cx="50"
-          cy="50"
-          r={radius}
-          fill="none"
-          strokeWidth="10"
-          strokeLinecap="round"
-          strokeDasharray={circumference}
-          strokeDashoffset={offset}
-          className="stroke-indigo-500 transition-[stroke-dashoffset] duration-700 ease-out dark:stroke-indigo-400"
-        />
-      </svg>
-      <div className="absolute text-center">
-        <p className="text-2xl font-extrabold text-slate-900 tabular-nums dark:text-white">
-          {percent}%
-        </p>
-        <p className="text-[11px] font-medium text-slate-500 dark:text-slate-400">complete</p>
-      </div>
-    </div>
-  );
-}
+    <section aria-label="Summary" className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+      <StatCard
+        label="Total income"
+        value={formatCurrency(totals.income, currency)}
+        icon={<ArrowUpIcon className="h-5 w-5" />}
+        accent="emerald"
+        footer={
+          <Hint>
+            {transactionCount === 0
+              ? 'No transactions yet'
+              : `Across ${transactionCount} transaction${transactionCount === 1 ? '' : 's'}`}
+          </Hint>
+        }
+      />
 
-export function Dashboard({ stats }: DashboardProps) {
-  const visibleCategories = stats.byCategory.filter((entry) => entry.total > 0);
+      <StatCard
+        label="Total expenses"
+        value={formatCurrency(totals.expenses, currency)}
+        icon={<ArrowDownIcon className="h-5 w-5" />}
+        accent="rose"
+        footer={<Hint>Spent across all categories</Hint>}
+      />
 
-  return (
-    <section aria-label="Task progress dashboard" className="card-surface animate-fade-up p-5 sm:p-6">
-      <div className="mb-5 flex items-center gap-2">
-        <ChartIcon className="h-5 w-5 text-indigo-500" />
-        <h2 className="text-base font-bold text-slate-900 dark:text-white">Dashboard</h2>
-      </div>
+      <StatCard
+        label="Available balance"
+        value={formatCurrency(totals.balance, currency)}
+        icon={<ScaleIcon className="h-5 w-5" />}
+        accent={totals.balance >= 0 ? 'indigo' : 'amber'}
+        footer={
+          <Hint
+            tone={savingsRate >= 0 ? 'up' : 'down'}
+            icon={savingsRate >= 0 ? <TrendUpIcon className="h-3.5 w-3.5" /> : <TrendDownIcon className="h-3.5 w-3.5" />}
+          >
+            {totals.income > 0
+              ? `${savingsRate >= 0 ? 'Saving' : 'Overspending'} ${Math.abs(savingsRate).toFixed(1)}% of income`
+              : 'Add income to see your savings rate'}
+          </Hint>
+        }
+        highlight
+      />
 
-      <div className="grid gap-6 lg:grid-cols-[auto_1fr] lg:items-center">
-        <div className="flex items-center justify-center gap-5 sm:justify-start">
-          <ProgressRing percent={stats.completionRate} />
-          <div className="space-y-1">
-            <p className="text-sm font-semibold text-slate-700 dark:text-slate-200">
-              {stats.completed} of {stats.total} done
-            </p>
-            <p className="text-xs text-slate-500 dark:text-slate-400">
-              {stats.active === 0 && stats.total > 0
-                ? 'All clear — nice work! 🎉'
-                : `${stats.active} task${stats.active === 1 ? '' : 's'} remaining`}
-            </p>
+      {/* Secondary row: this month vs. all time, useful context on wide screens. */}
+      <div className="card col-span-1 p-5 sm:col-span-2 lg:col-span-3">
+        <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-3">
+          <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">This month</p>
+          <div className="flex flex-wrap items-center gap-x-8 gap-y-2">
+            <MiniStat label="Income" value={formatCurrency(monthTotals.income, currency)} tone="income" />
+            <MiniStat label="Expenses" value={formatCurrency(monthTotals.expenses, currency)} tone="expense" />
+            <MiniStat label="Net" value={formatCurrency(monthTotals.balance, currency)} tone="net" />
           </div>
         </div>
-
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-          <StatCard
-            label="Total"
-            value={stats.total}
-            hint="All tasks"
-            accent="bg-gradient-to-r from-indigo-500 to-violet-500"
-          />
-          <StatCard
-            label="Active"
-            value={stats.active}
-            hint="Still to do"
-            accent="bg-gradient-to-r from-sky-500 to-cyan-500"
-          />
-          <StatCard
-            label="Overdue"
-            value={stats.overdue}
-            hint="Past the deadline"
-            accent="bg-gradient-to-r from-rose-500 to-red-500"
-          />
-          <StatCard
-            label="Due today"
-            value={stats.dueToday}
-            hint="Needs attention"
-            accent="bg-gradient-to-r from-amber-500 to-orange-500"
-          />
-        </div>
       </div>
-
-      {visibleCategories.length > 0 && (
-        <div className="mt-6 border-t border-slate-200/70 pt-5 dark:border-white/10">
-          <p className="mb-3 text-xs font-semibold tracking-wide text-slate-500 uppercase dark:text-slate-400">
-            Progress by category
-          </p>
-          <ul className="grid gap-3 sm:grid-cols-2">
-            {visibleCategories.map(({ category, total, completed }) => {
-              const percent = total === 0 ? 0 : Math.round((completed / total) * 100);
-              const tokens = colorTokens(category.color);
-              return (
-                <li key={category.id} className="space-y-1.5">
-                  <div className="flex items-center justify-between gap-3 text-xs">
-                    <span className="flex items-center gap-2 font-medium text-slate-700 dark:text-slate-200">
-                      <span className={`h-2.5 w-2.5 rounded-full ${tokens.solid}`} aria-hidden="true" />
-                      {category.name}
-                    </span>
-                    <span className="text-slate-500 tabular-nums dark:text-slate-400">
-                      {completed}/{total} · {percent}%
-                    </span>
-                  </div>
-                  <div
-                    className="h-2 overflow-hidden rounded-full bg-slate-200/80 dark:bg-white/10"
-                    role="progressbar"
-                    aria-valuenow={percent}
-                    aria-valuemin={0}
-                    aria-valuemax={100}
-                    aria-label={`${category.name} progress`}
-                  >
-                    <div
-                      className={`h-full rounded-full ${tokens.solid} transition-[width] duration-700 ease-out`}
-                      style={{ width: `${percent}%` }}
-                    />
-                  </div>
-                </li>
-              );
-            })}
-          </ul>
-        </div>
-      )}
     </section>
+  );
+}
+
+const ACCENTS = {
+  emerald: 'bg-emerald-50 text-emerald-600 dark:bg-emerald-500/10 dark:text-emerald-400',
+  rose: 'bg-rose-50 text-rose-600 dark:bg-rose-500/10 dark:text-rose-400',
+  indigo: 'bg-indigo-50 text-indigo-600 dark:bg-indigo-500/10 dark:text-indigo-400',
+  amber: 'bg-amber-50 text-amber-600 dark:bg-amber-500/10 dark:text-amber-400',
+} as const;
+
+function StatCard({
+  label,
+  value,
+  icon,
+  accent,
+  footer,
+  highlight = false,
+}: {
+  label: string;
+  value: string;
+  icon: ReactNode;
+  accent: keyof typeof ACCENTS;
+  footer: ReactNode;
+  highlight?: boolean;
+}) {
+  return (
+    <div
+      className={[
+        'card animate-fade-in p-5',
+        highlight ? 'ring-1 ring-indigo-500/20 dark:ring-indigo-400/20' : '',
+      ]
+        .filter(Boolean)
+        .join(' ')}
+    >
+      <div className="flex items-start justify-between gap-3">
+        <p className="text-sm font-medium text-slate-500 dark:text-slate-400">{label}</p>
+        <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${ACCENTS[accent]}`}>
+          {icon}
+        </span>
+      </div>
+      <p className="mt-3 text-2xl font-bold tracking-tight text-slate-900 tabular-nums sm:text-3xl dark:text-slate-50">
+        {value}
+      </p>
+      <div className="mt-2">{footer}</div>
+    </div>
+  );
+}
+
+function Hint({
+  children,
+  tone = 'neutral',
+  icon,
+}: {
+  children: ReactNode;
+  tone?: 'neutral' | 'up' | 'down';
+  icon?: ReactNode;
+}) {
+  const toneClass =
+    tone === 'up'
+      ? 'text-emerald-600 dark:text-emerald-400'
+      : tone === 'down'
+        ? 'text-rose-600 dark:text-rose-400'
+        : 'text-slate-500 dark:text-slate-400';
+
+  return (
+    <p className={`flex items-center gap-1.5 text-xs font-medium ${toneClass}`}>
+      {icon}
+      {children}
+    </p>
+  );
+}
+
+function MiniStat({ label, value, tone }: { label: string; value: string; tone: 'income' | 'expense' | 'net' }) {
+  const toneClass =
+    tone === 'income'
+      ? 'text-emerald-600 dark:text-emerald-400'
+      : tone === 'expense'
+        ? 'text-rose-600 dark:text-rose-400'
+        : 'text-slate-900 dark:text-slate-100';
+
+  return (
+    <div className="flex items-baseline gap-2">
+      <span className="text-xs font-medium text-slate-500 dark:text-slate-400">{label}</span>
+      <span className={`text-sm font-bold tabular-nums ${toneClass}`}>{value}</span>
+    </div>
   );
 }

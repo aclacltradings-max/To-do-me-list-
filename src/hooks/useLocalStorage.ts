@@ -1,28 +1,43 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 /**
- * State that transparently mirrors itself into localStorage.
- * Falls back to `initialValue` when storage is empty or contains invalid JSON.
+ * State that mirrors itself into localStorage.
+ *
+ * Reads once on mount (lazily, so the initial render never blocks), then writes
+ * on every change. Corrupt or missing values fall back to `initial`.
  */
-export function useLocalStorage<T>(key: string, initialValue: T) {
-  const [value, setValue] = useState<T>(() => {
-    try {
-      const raw = window.localStorage.getItem(key);
-      return raw === null ? initialValue : (JSON.parse(raw) as T);
-    } catch {
-      return initialValue;
-    }
-  });
+export function useLocalStorage<T>(key: string, initial: T) {
+  const [value, setValue] = useState<T>(() => readInitial(key, initial));
+  const keyRef = useRef(key);
+
+  useEffect(() => {
+    keyRef.current = key;
+  }, [key]);
 
   useEffect(() => {
     try {
-      window.localStorage.setItem(key, JSON.stringify(value));
+      window.localStorage.setItem(keyRef.current, JSON.stringify(value));
     } catch {
-      // Storage can be unavailable (private mode, quota). The app still works in memory.
+      // Storage can be full or blocked (private mode); the app still works in memory.
     }
-  }, [key, value]);
+  }, [value]);
 
-  const reset = useCallback(() => setValue(initialValue), [initialValue]);
+  const reset = useCallback(() => setValue(initial), [initial]);
 
   return [value, setValue, reset] as const;
+}
+
+function readInitial<T>(key: string, fallback: T): T {
+  if (typeof window === 'undefined') return fallback;
+  try {
+    const raw = window.localStorage.getItem(key);
+    if (raw === null) return fallback;
+    const parsed = JSON.parse(raw) as T;
+    if (parsed === null || parsed === undefined) return fallback;
+    // Guard against a stored value of the wrong shape (e.g. an object where an array is expected).
+    if (Array.isArray(fallback) && !Array.isArray(parsed)) return fallback;
+    return parsed;
+  } catch {
+    return fallback;
+  }
 }

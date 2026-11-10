@@ -1,64 +1,81 @@
-export type Priority = 'low' | 'medium' | 'high';
+/** A transaction is either money coming in (income) or going out (expense). */
+export type TransactionType = 'income' | 'expense';
 
-export interface Task {
+export interface Transaction {
   id: string;
-  title: string;
-  notes: string;
-  completed: boolean;
-  priority: Priority;
-  /** Due date in `YYYY-MM-DD` format, or null when the task has no deadline. */
-  dueDate: string | null;
+  type: TransactionType;
+  /** Always a positive number. The `type` field decides the sign. */
+  amount: number;
   categoryId: string;
+  description: string;
+  /** ISO date string in `YYYY-MM-DD` form (no time component). */
+  date: string;
   createdAt: number;
   updatedAt: number;
-  completedAt: number | null;
 }
 
 export interface Category {
   id: string;
   name: string;
-  /** Key into CATEGORY_COLORS. */
-  color: ColorKey;
+  type: TransactionType;
+  /** Tailwind colour token used for chips and charts. */
+  color: ColorToken;
 }
 
-export type ColorKey =
+/** A curated palette so categories always look consistent and readable. */
+export type ColorToken =
   | 'indigo'
-  | 'violet'
-  | 'fuchsia'
-  | 'rose'
-  | 'amber'
-  | 'emerald'
   | 'sky'
-  | 'teal';
+  | 'emerald'
+  | 'teal'
+  | 'amber'
+  | 'orange'
+  | 'rose'
+  | 'pink'
+  | 'violet'
+  | 'cyan'
+  | 'lime'
+  | 'slate';
 
-export type StatusFilter = 'all' | 'active' | 'completed';
+/** The shape the transaction form works with, before validation. */
+export interface TransactionDraft {
+  type: TransactionType;
+  amount: string;
+  categoryId: string;
+  description: string;
+  date: string;
+}
 
-export type PriorityFilter = 'all' | Priority;
+export type FieldErrors = Partial<Record<keyof TransactionDraft, string>>;
 
-export type SortKey = 'due' | 'priority' | 'created' | 'alpha';
-
-export interface Filters {
+export interface TransactionFilters {
   search: string;
-  status: StatusFilter;
-  priority: PriorityFilter;
-  categoryId: string;
-  sort: SortKey;
+  type: TransactionType | 'all';
+  categoryId: string | 'all';
+  from: string;
+  to: string;
 }
 
-export interface TaskDraft {
-  title: string;
-  notes: string;
-  priority: Priority;
-  dueDate: string | null;
-  categoryId: string;
+export interface MonthlySummaryRow {
+  /** `YYYY-MM` */
+  month: string;
+  label: string;
+  income: number;
+  expenses: number;
+  net: number;
+  count: number;
 }
 
-export interface Stats {
-  total: number;
-  completed: number;
-  active: number;
-  overdue: number;
-  dueToday: number;
-  completionRate: number;
-  byCategory: Array<{ category: Category; total: number; completed: number }>;
+export interface CategoryBreakdownRow {
+  categoryId: string;
+  name: string;
+  color: ColorToken;
+  value: number;
+  percent: number;
+}
+
+export interface Totals {
+  income: number;
+  expenses: number;
+  balance: number;
 }

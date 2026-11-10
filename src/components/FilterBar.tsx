@@ -1,164 +1,139 @@
-import type { Category, Filters, PriorityFilter, SortKey, StatusFilter } from '../types';
-import { ALL_CATEGORY_ID } from '../lib/taskUtils';
-import { colorTokens } from '../lib/theme';
-import { SearchIcon } from './Icons';
+import type { Category, TransactionFilters } from '../types';
+import { hasActiveFilters } from '../utils/finance';
+import { Button } from './ui/Button';
+import { CloseIcon, FilterIcon, SearchIcon } from './Icons';
 
 interface FilterBarProps {
-  filters: Filters;
-  categories: Category[];
-  counts: { all: number; active: number; completed: number };
-  onChange: (patch: Partial<Filters>) => void;
+  filters: TransactionFilters;
+  onChange: (filters: TransactionFilters) => void;
   onReset: () => void;
+  categories: Category[];
+  /** Number of rows currently matching, shown as feedback. */
+  resultCount: number;
+  totalCount: number;
 }
 
-const STATUS_TABS: Array<{ key: StatusFilter; label: string }> = [
-  { key: 'all', label: 'All' },
-  { key: 'active', label: 'Active' },
-  { key: 'completed', label: 'Completed' },
-];
+export function FilterBar({
+  filters,
+  onChange,
+  onReset,
+  categories,
+  resultCount,
+  totalCount,
+}: FilterBarProps) {
+  const active = hasActiveFilters(filters);
 
-const PRIORITY_OPTIONS: Array<{ key: PriorityFilter; label: string }> = [
-  { key: 'all', label: 'Any priority' },
-  { key: 'high', label: 'High' },
-  { key: 'medium', label: 'Medium' },
-  { key: 'low', label: 'Low' },
-];
-
-const SORT_OPTIONS: Array<{ key: SortKey; label: string }> = [
-  { key: 'due', label: 'Due date' },
-  { key: 'priority', label: 'Priority' },
-  { key: 'created', label: 'Newest' },
-  { key: 'alpha', label: 'A → Z' },
-];
-
-export function FilterBar({ filters, categories, counts, onChange, onReset }: FilterBarProps) {
-  const isFiltered =
-    filters.search.trim() !== '' ||
-    filters.status !== 'all' ||
-    filters.priority !== 'all' ||
-    filters.categoryId !== ALL_CATEGORY_ID ||
-    filters.sort !== 'due';
+  const set = <K extends keyof TransactionFilters>(key: K, value: TransactionFilters[K]) =>
+    onChange({ ...filters, [key]: value });
 
   return (
-    <section aria-label="Search and filters" className="card-surface animate-fade-up space-y-4 p-4 sm:p-5">
-      <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
-        <div className="relative flex-1">
-          <SearchIcon className="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-slate-400" />
+    <div className="card p-4">
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex items-center gap-2">
+          <FilterIcon className="h-4 w-4 text-slate-400" />
+          <h2 className="text-sm font-semibold text-slate-900 dark:text-slate-100">Search &amp; filter</h2>
+        </div>
+        {active && (
+          <Button variant="ghost" size="sm" onClick={onReset}>
+            <CloseIcon className="h-4 w-4" />
+            Reset
+          </Button>
+        )}
+      </div>
+
+      <div className="mt-3.5 space-y-3">
+        {/* Search */}
+        <div className="relative">
+          <SearchIcon className="pointer-events-none absolute top-1/2 left-3.5 h-4 w-4 -translate-y-1/2 text-slate-400" />
           <input
             type="search"
             value={filters.search}
-            onChange={(event) => onChange({ search: event.target.value })}
-            placeholder="Search tasks by title or notes…"
-            aria-label="Search tasks"
-            className="field pl-9"
+            onChange={(e) => set('search', e.target.value)}
+            placeholder="Search descriptions…"
+            aria-label="Search transactions by description"
+            className="field pl-10"
           />
         </div>
 
-        <div className="flex gap-2">
-          <select
-            className="field"
-            value={filters.priority}
-            onChange={(event) => onChange({ priority: event.target.value as PriorityFilter })}
-            aria-label="Filter by priority"
-          >
-            {PRIORITY_OPTIONS.map((option) => (
-              <option key={option.key} value={option.key}>
-                {option.label}
-              </option>
-            ))}
-          </select>
+        {/* Type + category */}
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <div>
+            <label className="label-text" htmlFor="filter-type">
+              Type
+            </label>
+            <select
+              id="filter-type"
+              value={filters.type}
+              onChange={(e) => set('type', e.target.value as TransactionFilters['type'])}
+              className="field"
+            >
+              <option value="all">All types</option>
+              <option value="income">Income only</option>
+              <option value="expense">Expenses only</option>
+            </select>
+          </div>
 
-          <select
-            className="field"
-            value={filters.sort}
-            onChange={(event) => onChange({ sort: event.target.value as SortKey })}
-            aria-label="Sort tasks"
-          >
-            {SORT_OPTIONS.map((option) => (
-              <option key={option.key} value={option.key}>
-                Sort: {option.label}
-              </option>
-            ))}
-          </select>
-        </div>
-      </div>
-
-      <div className="flex flex-wrap items-center gap-2">
-        <div
-          className="inline-flex rounded-xl border border-slate-200 bg-white/70 p-1 dark:border-white/10 dark:bg-white/5"
-          role="tablist"
-          aria-label="Task status"
-        >
-          {STATUS_TABS.map((tab) => {
-            const active = filters.status === tab.key;
-            return (
-              <button
-                key={tab.key}
-                type="button"
-                role="tab"
-                aria-selected={active}
-                onClick={() => onChange({ status: tab.key })}
-                className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition ${
-                  active
-                    ? 'bg-slate-900 text-white shadow-sm dark:bg-white dark:text-slate-900'
-                    : 'text-slate-600 hover:text-slate-900 dark:text-slate-300 dark:hover:text-white'
-                }`}
-              >
-                {tab.label}
-                <span className={`ml-1.5 tabular-nums ${active ? 'opacity-80' : 'opacity-60'}`}>
-                  {counts[tab.key]}
-                </span>
-              </button>
-            );
-          })}
+          <div>
+            <label className="label-text" htmlFor="filter-category">
+              Category
+            </label>
+            <select
+              id="filter-category"
+              value={filters.categoryId}
+              onChange={(e) => set('categoryId', e.target.value)}
+              className="field"
+            >
+              <option value="all">All categories</option>
+              {categories.map((category) => (
+                <option key={category.id} value={category.id}>
+                  {category.name} ({category.type})
+                </option>
+              ))}
+            </select>
+          </div>
         </div>
 
-        <div className="flex flex-wrap items-center gap-1.5">
-          <button
-            type="button"
-            onClick={() => onChange({ categoryId: ALL_CATEGORY_ID })}
-            className={`chip transition ${
-              filters.categoryId === ALL_CATEGORY_ID
-                ? 'border-transparent bg-slate-900 text-white dark:bg-white dark:text-slate-900'
-                : 'border-slate-200 bg-white/70 text-slate-600 hover:bg-white dark:border-white/10 dark:bg-white/5 dark:text-slate-300'
-            }`}
-          >
-            All categories
-          </button>
-          {categories.map((category) => {
-            const active = filters.categoryId === category.id;
-            const tokens = colorTokens(category.color);
-            return (
-              <button
-                key={category.id}
-                type="button"
-                onClick={() => onChange({ categoryId: category.id })}
-                className={`chip transition ${
-                  active
-                    ? 'border-transparent bg-slate-900 text-white dark:bg-white dark:text-slate-900'
-                    : `${tokens.chip} hover:brightness-105`
-                }`}
-              >
-                <span
-                  className={`h-1.5 w-1.5 rounded-full ${active ? 'bg-current' : tokens.solid}`}
-                  aria-hidden="true"
-                />
-                {category.name}
-              </button>
-            );
-          })}
+        {/* Date range */}
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <div>
+            <label className="label-text" htmlFor="filter-from">
+              From date
+            </label>
+            <input
+              id="filter-from"
+              type="date"
+              value={filters.from}
+              max={filters.to || undefined}
+              onChange={(e) => set('from', e.target.value)}
+              className="field"
+            />
+          </div>
+          <div>
+            <label className="label-text" htmlFor="filter-to">
+              To date
+            </label>
+            <input
+              id="filter-to"
+              type="date"
+              value={filters.to}
+              min={filters.from || undefined}
+              onChange={(e) => set('to', e.target.value)}
+              className="field"
+            />
+          </div>
         </div>
 
-        {isFiltered && (
-          <button
-            type="button"
-            onClick={onReset}
-            className="ml-auto text-xs font-semibold text-indigo-600 transition hover:text-indigo-500 dark:text-indigo-300"
-          >
-            Reset filters
-          </button>
+        {filters.from && filters.to && filters.from > filters.to && (
+          <p className="text-xs font-medium text-rose-600 dark:text-rose-400" aria-live="polite">
+            The start date is after the end date, so no results will match.
+          </p>
         )}
+
+        <p className="text-xs text-slate-500 dark:text-slate-400" aria-live="polite">
+          Showing <span className="font-semibold text-slate-700 dark:text-slate-200">{resultCount}</span> of{' '}
+          {totalCount} transaction{totalCount === 1 ? '' : 's'}
+        </p>
       </div>
-    </section>
+    </div>
   );
 }

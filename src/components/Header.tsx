@@ -21,7 +21,7 @@ export function Header({
   onInstall,
 }: HeaderProps) {
   return (
-    <header className="sticky top-0 z-40 border-b border-slate-200 bg-white/85 backdrop-blur-lg dark:border-slate-800 dark:bg-slate-950/85">
+    <header className="sticky top-0 z-40 border-b border-slate-200 bg-white/85 pt-[env(safe-area-inset-top)] backdrop-blur-lg dark:border-slate-800 dark:bg-slate-950/85">
       <div className="mx-auto flex h-16 max-w-7xl items-center gap-3 px-4 sm:px-6 lg:px-8">
         {onToggleMenu && (
           <button
@@ -64,14 +64,18 @@ export function Header({
             onClick={onToggleTheme}
             aria-label={isDark ? 'Switch to light theme' : 'Switch to dark theme'}
             title={isDark ? 'Switch to light theme' : 'Switch to dark theme'}
-            className="rounded-xl border border-slate-200 bg-white p-2.5 text-slate-600 shadow-sm transition hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800"
+            className="flex h-11 w-11 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-600 shadow-sm transition hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800"
           >
             {isDark ? <SunIcon className="h-5 w-5" /> : <MoonIcon className="h-5 w-5" />}
           </button>
-          <Button onClick={onAdd} className="hidden sm:inline-flex">
-            <PlusIcon className="h-4 w-4" />
-            Add transaction
-          </Button>
+          {/* The button's base `inline-flex` outranks the `hidden` utility in the
+              compiled stylesheet, so hiding is done on a wrapper instead. */}
+          <span className="hidden sm:inline-flex">
+            <Button onClick={onAdd}>
+              <PlusIcon className="h-4 w-4" />
+              Add transaction
+            </Button>
+          </span>
         </div>
       </div>
     </header>

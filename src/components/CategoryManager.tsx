@@ -88,7 +88,7 @@ export function CategoryManager({
               }}
               aria-pressed={type === option}
               className={[
-                'flex-1 rounded-md px-3 py-1.5 text-xs font-semibold capitalize transition',
+                'flex-1 rounded-md px-3 py-1.5 text-xs font-semibold capitalize transition pointer-coarse:py-3.5',
                 type === option
                   ? 'bg-white text-slate-900 shadow-sm dark:bg-slate-900 dark:text-slate-100'
                   : 'text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200',
@@ -126,7 +126,7 @@ export function CategoryManager({
               aria-label={`Use ${token} colour`}
               aria-pressed={color === token}
               className={[
-                'flex h-6 w-6 items-center justify-center rounded-full ring-offset-2 transition ring-offset-white dark:ring-offset-slate-900',
+                'flex h-6 w-6 items-center justify-center rounded-full ring-offset-2 transition ring-offset-white pointer-coarse:h-11 pointer-coarse:w-11 dark:ring-offset-slate-900',
                 colorStyle(token).bg,
                 color === token ? 'ring-2 ring-slate-900 dark:ring-white' : 'hover:scale-110',
               ].join(' ')}
@@ -180,13 +180,13 @@ export function CategoryManager({
                             }
                           }}
                           aria-label={`Rename ${category.name}`}
-                          className="field h-8 flex-1 py-0 text-sm"
+                          className="field h-9 flex-1 py-0 text-sm pointer-coarse:h-11"
                         />
                         <button
                           type="button"
                           onClick={() => commitEdit(category)}
                           aria-label="Save name"
-                          className="rounded-lg p-1.5 text-emerald-600 transition hover:bg-emerald-50 dark:hover:bg-emerald-500/10"
+                          className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-emerald-600 transition hover:bg-emerald-50 pointer-coarse:h-11 pointer-coarse:w-11 dark:hover:bg-emerald-500/10"
                         >
                           <CheckIcon className="h-4 w-4" />
                         </button>
@@ -197,7 +197,7 @@ export function CategoryManager({
                             setError(null);
                           }}
                           aria-label="Cancel rename"
-                          className="rounded-lg p-1.5 text-slate-400 transition hover:bg-slate-100 dark:hover:bg-slate-700"
+                          className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-slate-400 transition hover:bg-slate-100 pointer-coarse:h-11 pointer-coarse:w-11 dark:hover:bg-slate-700"
                         >
                           <CloseIcon className="h-4 w-4" />
                         </button>
@@ -215,7 +215,7 @@ export function CategoryManager({
                           onClick={() => startEdit(category)}
                           aria-label={`Rename ${category.name}`}
                           title="Rename"
-                          className="shrink-0 rounded-lg p-1.5 text-slate-400 transition hover:bg-slate-100 hover:text-indigo-600 dark:hover:bg-slate-700 dark:hover:text-indigo-400"
+                          className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-slate-400 transition hover:bg-slate-100 hover:text-indigo-600 pointer-coarse:h-11 pointer-coarse:w-11 dark:hover:bg-slate-700 dark:hover:text-indigo-400"
                         >
                           <PencilIcon className="h-3.5 w-3.5" />
                         </button>
@@ -224,7 +224,7 @@ export function CategoryManager({
                           onClick={() => onDelete(category)}
                           aria-label={`Delete ${category.name}`}
                           title="Delete"
-                          className="shrink-0 rounded-lg p-1.5 text-slate-400 transition hover:bg-rose-50 hover:text-rose-600 dark:hover:bg-rose-500/10 dark:hover:text-rose-400"
+                          className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-slate-400 transition hover:bg-rose-50 hover:text-rose-600 pointer-coarse:h-11 pointer-coarse:w-11 dark:hover:bg-rose-500/10 dark:hover:text-rose-400"
                         >
                           <TrashIcon className="h-3.5 w-3.5" />
                         </button>

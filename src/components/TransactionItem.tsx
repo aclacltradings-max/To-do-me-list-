@@ -64,13 +64,15 @@ export function TransactionItem({ transaction, category, onEdit, onDelete }: Tra
           {formatCurrency(transaction.amount)}
         </span>
 
+        {/* Touch devices get full 44px targets; pointer devices keep them compact
+            and reveal them on hover/focus to reduce visual noise. */}
         <div className="flex items-center gap-0.5 opacity-100 transition sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100">
           <button
             type="button"
             onClick={() => onEdit(transaction)}
             aria-label={`Edit ${transaction.description}`}
             title="Edit"
-            className="rounded-lg p-2 text-slate-400 transition hover:bg-slate-100 hover:text-indigo-600 dark:hover:bg-slate-700 dark:hover:text-indigo-400"
+            className="flex h-9 w-9 items-center justify-center rounded-lg text-slate-400 transition hover:bg-slate-100 hover:text-indigo-600 pointer-coarse:h-11 pointer-coarse:w-11 dark:hover:bg-slate-700 dark:hover:text-indigo-400"
           >
             <PencilIcon className="h-4 w-4" />
           </button>
@@ -79,7 +81,7 @@ export function TransactionItem({ transaction, category, onEdit, onDelete }: Tra
             onClick={() => onDelete(transaction)}
             aria-label={`Delete ${transaction.description}`}
             title="Delete"
-            className="rounded-lg p-2 text-slate-400 transition hover:bg-rose-50 hover:text-rose-600 dark:hover:bg-rose-500/10 dark:hover:text-rose-400"
+            className="flex h-9 w-9 items-center justify-center rounded-lg text-slate-400 transition hover:bg-rose-50 hover:text-rose-600 pointer-coarse:h-11 pointer-coarse:w-11 dark:hover:bg-rose-500/10 dark:hover:text-rose-400"
           >
             <TrashIcon className="h-4 w-4" />
           </button>

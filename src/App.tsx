@@ -144,7 +144,8 @@ export default function App() {
 
       {!online && <OfflineBanner />}
 
-      <main className="mx-auto max-w-7xl px-4 pb-24 pt-6 sm:px-6 lg:px-8">
+      {/* Extra bottom padding clears the home indicator in the installed app. */}
+      <main className="mx-auto max-w-7xl px-4 pt-6 pb-[calc(6rem+env(safe-area-inset-bottom))] sm:px-6 lg:px-8">
         {/* Dashboard */}
         <Dashboard
           totals={totals}
@@ -228,7 +229,7 @@ export default function App() {
         type="button"
         onClick={openAdd}
         aria-label="Add transaction"
-        className="fixed right-5 bottom-5 z-30 flex h-14 w-14 items-center justify-center rounded-full bg-indigo-600 text-white shadow-lg transition hover:bg-indigo-500 active:scale-95 sm:hidden"
+        className="fixed right-5 bottom-[calc(1.25rem+env(safe-area-inset-bottom))] z-30 flex h-14 w-14 items-center justify-center rounded-full bg-indigo-600 text-white shadow-lg transition hover:bg-indigo-500 active:scale-95 sm:hidden"
       >
         <PlusIcon className="h-6 w-6" />
       </button>

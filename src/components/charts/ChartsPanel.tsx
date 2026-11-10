@@ -119,7 +119,7 @@ export function ChartsPanel({ transactions, categories }: ChartsPanelProps) {
                 onClick={() => setMode(option)}
                 aria-pressed={mode === option}
                 className={[
-                  'rounded-md px-3 py-1 text-xs font-semibold capitalize transition',
+                  'rounded-md px-3.5 py-1.5 text-xs font-semibold capitalize transition pointer-coarse:py-3.5',
                   mode === option
                     ? 'bg-white text-slate-900 shadow-sm dark:bg-slate-900 dark:text-slate-100'
                     : 'text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200',

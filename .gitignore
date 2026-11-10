@@ -7,3 +7,18 @@ dist-ssr
 .vscode/*
 !.vscode/extensions.json
 .idea
+
+# Electron packaging output
+release/
+
+# Capacitor / Android build output (generated)
+android/.gradle/
+android/build/
+android/app/build/
+android/local.properties
+android/capacitor-cordova-android-plugins/
+android/app/src/main/assets/public/
+android/app/src/main/assets/capacitor.config.json
+
+# Scratch space used by the layout/QA scripts
+.tmp-audit/

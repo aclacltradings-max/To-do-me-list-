@@ -1,13 +1,18 @@
 # FinTrack — Personal Finance Tracker
 
-A clean, modern, offline-first web app for tracking income and expenses. Built with
+A clean, modern, offline-first app for tracking income and expenses. Built with
 **React 19**, **TypeScript**, **Vite** and **Tailwind CSS v4**. No backend, no API keys,
-no accounts — everything lives in your browser's `localStorage`.
+no accounts — everything lives in local storage on your own device.
 
-Installable as a PWA: add it to your phone's home screen or your desktop and it runs in
-its own window, fully offline.
+It runs **three ways from one codebase**:
 
-![Stack](https://img.shields.io/badge/React-19-61dafb) ![TypeScript](https://img.shields.io/badge/TypeScript-5.9-3178c6) ![Vite](https://img.shields.io/badge/Vite-7-646cff) ![Tailwind](https://img.shields.io/badge/Tailwind-4-38bdf8) ![PWA](https://img.shields.io/badge/PWA-installable-5a0fc8)
+| Platform | How it ships |
+| --- | --- |
+| **Web / PWA** | Installable from the browser — own window, works offline |
+| **Android** | A real installable APK (Capacitor) |
+| **Desktop** | Native app for Linux (AppImage / `.deb`) and Windows (Electron) |
+
+![Stack](https://img.shields.io/badge/React-19-61dafb) ![TypeScript](https://img.shields.io/badge/TypeScript-5.9-3178c6) ![Vite](https://img.shields.io/badge/Vite-7-646cff) ![Tailwind](https://img.shields.io/badge/Tailwind-4-38bdf8) ![PWA](https://img.shields.io/badge/PWA-installable-5a0fc8) ![Android](https://img.shields.io/badge/Android-APK-3ddc84) ![Electron](https://img.shields.io/badge/Desktop-Electron-47848f)
 
 ## Features
 
@@ -40,14 +45,18 @@ its own window, fully offline.
 
 ## Installing the app
 
-FinTrack is a Progressive Web App. Once installed it launches in its own window, appears
-in your app list, and works offline.
+FinTrack ships as a PWA and as native apps for Android and desktop. All three use the
+same code and the same local-storage data model; pick whichever suits your device.
+
+### Web / PWA
+
+Once installed it launches in its own window, appears in your app list, and works offline.
 
 | Platform | How to install |
 | --- | --- |
 | **Chrome / Edge / Android** | Click the **Install** button in the header, or the install icon in the address bar. |
 | **iOS Safari** | Tap **Share** → **Add to Home Screen**. (The in-app dialog shows these steps.) |
-| **Desktop** | Use the install icon in the address bar, or the browser menu → *Install FinTrack*. |
+| **Desktop browser** | Use the install icon in the address bar, or the browser menu → *Install FinTrack*. |
 
 Installation requires the app to be served over **HTTPS** (or `localhost`). The dev server
 serves over HTTP, so the service worker only registers in a production build:
@@ -56,6 +65,42 @@ serves over HTTP, so the service worker only registers in a production build:
 npm run build
 npm run preview   # then open the printed URL
 ```
+
+### Android
+
+A Capacitor project wraps the same web build into a normal Android app.
+
+```bash
+npm run android:apk      # debug APK → android/app/build/outputs/apk/debug/app-debug.apk
+npm run android:release  # unsigned release APK (sign it before distributing)
+```
+
+Install the debug build on a connected device or emulator:
+
+```bash
+adb install -r android/app/build/outputs/apk/debug/app-debug.apk
+```
+
+Requirements: **JDK 17 or newer** and the **Android SDK** (platform 35, build-tools
+35.0.0). Point Gradle at your SDK with `android/local.properties`:
+
+```properties
+sdk.dir=/path/to/Android/Sdk
+```
+
+### Desktop
+
+An Electron shell runs the same web build in a native window, served over a loopback HTTP
+origin so local storage and code-splitting behave exactly as they do on the web.
+
+```bash
+npm run electron:dev          # build and launch the desktop app
+npm run electron:build:linux  # AppImage + .deb → release/
+npm run electron:build:win    # NSIS installer → release/ (build on Windows, or with wine)
+npm run electron:build:mac    # DMG → release/ (must be built on macOS)
+```
+
+Output lands in the git-ignored `release/` directory.
 
 ## Getting started
 
@@ -74,6 +119,14 @@ npm run lint    # type-check only (tsc --noEmit)
 ```
 .
 ├── index.html                      # Meta tags, manifest link, theme colour
+├── capacitor.config.ts             # Android packaging config
+├── electron/
+│   └── main.cjs                    # Desktop main process + loopback static server
+├── scripts/
+│   └── generate-icons.py           # Regenerates app icons and Android splashes
+├── build/
+│   └── icon.png                    # Source icon for the desktop installers
+├── android/                        # Generated Capacitor Android project
 ├── public/
 │   ├── manifest.webmanifest        # PWA metadata (name, icons, display)
 │   ├── sw.js                       # Service worker — offline caching
@@ -129,6 +182,33 @@ npm run lint    # type-check only (tsc --noEmit)
 ├── tsconfig.node.json
 └── vite.config.ts
 ```
+
+## Packaging for Android and desktop
+
+The web build in `dist/` is the single artifact that all three targets consume, so there
+is no platform-specific application code to keep in sync.
+
+### Android (Capacitor)
+
+`capacitor.config.ts` points Capacitor at `dist/`. `npm run android:apk` builds the web
+app, copies `dist/` into the Android project, and runs Gradle to produce an APK. Capacitor
+serves the files from a local `https://` origin inside the WebView, which means the app
+gets a secure origin (so local storage and other secure-context APIs behave normally) and
+needs no service worker to work offline.
+
+The launcher icons and splash screens are generated by `scripts/generate-icons.py` — edit
+that script and re-run it rather than hand-editing the many PNGs.
+
+### Desktop (Electron)
+
+`electron/main.cjs` starts a small HTTP server bound to `127.0.0.1` on a random free port
+and loads the app from there. Serving over HTTP rather than `file://` gives the page a
+real origin, so `localStorage` and the lazy-loaded charts chunk work identically to the
+web build. The server only ever reads from `dist/` and falls back to `index.html` for
+unknown paths, so it behaves like a normal single-page-app host.
+
+`electron-builder` (configured under the `build` key in `package.json`) turns that into an
+AppImage and a `.deb` on Linux, an NSIS installer on Windows, and a DMG on macOS.
 
 ## How it works
 

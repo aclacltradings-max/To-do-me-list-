@@ -7,23 +7,75 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "preview": "vite preview",
-    "lint": "tsc -b --noEmit"
+    "lint": "tsc -b --noEmit",
+    "electron:dev": "npm run build && electron .",
+    "electron:build": "npm run build && electron-builder",
+    "electron:build:linux": "npm run build && electron-builder --linux",
+    "electron:build:win": "npm run build && electron-builder --win",
+    "electron:build:mac": "npm run build && electron-builder --mac",
+    "android:sync": "npm run build && cap sync android",
+    "android:apk": "npm run build && cap sync android && cd android && ./gradlew assembleDebug",
+    "android:release": "npm run build && cap sync android && cd android && ./gradlew assembleRelease"
   },
   "dependencies": {
+    "@capacitor/android": "^7.6.10",
+    "@capacitor/core": "^7.6.10",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
     "recharts": "^3.2.1"
   },
   "devDependencies": {
+    "@capacitor/cli": "^7.6.10",
     "@tailwindcss/vite": "^4.1.14",
     "@types/react": "^19.2.0",
     "@types/react-dom": "^19.2.0",
     "@vitejs/plugin-react": "^5.0.4",
+    "electron": "^33.4.11",
+    "electron-builder": "^25.1.8",
     "tailwindcss": "^4.1.14",
     "typescript": "^5.9.3",
     "vite": "^7.1.9"
   },
   "allowScripts": {
     "esbuild@0.28.2": true
+  },
+  "description": "FinTrack \u2014 a private, offline-first personal finance tracker (React + TypeScript + Vite + Tailwind), packaged for web, Android and desktop.",
+  "author": "FinTrack",
+  "main": "electron/main.cjs",
+  "build": {
+    "appId": "com.fintrack.app",
+    "productName": "FinTrack",
+    "files": [
+      "dist/**/*",
+      "electron/**/*",
+      "package.json"
+    ],
+    "directories": {
+      "output": "release",
+      "buildResources": "build"
+    },
+    "linux": {
+      "target": [
+        "AppImage",
+        "deb"
+      ],
+      "category": "Office",
+      "maintainer": "FinTrack"
+    },
+    "win": {
+      "target": [
+        "nsis"
+      ]
+    },
+    "mac": {
+      "target": [
+        "dmg"
+      ],
+      "category": "public.app-category.finance"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true
+    }
   }
 }
